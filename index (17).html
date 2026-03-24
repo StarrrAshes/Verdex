@@ -1,0 +1,1494 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>National Environmental Data Network</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        /* ═══════════════════════════════════════════
+           CSS VARIABLES & RESET
+           ═══════════════════════════════════════════ */
+        :root {
+            --deep: #0a1628;
+            --ocean-dark: #0d2137;
+            --ocean-mid: #134568;
+            --ocean-light: #1a6b8a;
+            --teal: #2dd4bf;
+            --teal-muted: #1a9c8b;
+            --seafoam: #5eead4;
+            --sand: #f5f0e8;
+            --sand-light: #faf8f4;
+            --pearl: #ffffff;
+            --coral: #f97066;
+            --gold: #d4a853;
+            --slate: #64748b;
+            --slate-light: #94a3b8;
+            --heading: 'Cormorant Garamond', Georgia, serif;
+            --body: 'DM Sans', system-ui, sans-serif;
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+        }
+
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            font-size: 16px;
+        }
+
+        body {
+            font-family: var(--body);
+            color: var(--deep);
+            background: var(--sand-light);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ═══════════════════════════════════════════
+           NAVIGATION
+           ═══════════════════════════════════════════ */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            padding: 0 3rem;
+            height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.5s var(--ease-out-expo);
+        }
+
+        nav.scrolled {
+            background: rgba(10, 22, 40, 0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 1px 0 rgba(45, 212, 191, 0.1);
+        }
+
+        .nav-logo {
+            font-family: var(--heading);
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--pearl);
+            letter-spacing: 0.03em;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .nav-logo span {
+            color: var(--teal);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2.5rem;
+            list-style: none;
+            align-items: center;
+        }
+
+        .nav-links a {
+            font-family: var(--body);
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            transition: color 0.3s ease;
+            position: relative;
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background: var(--teal);
+            transition: width 0.4s var(--ease-out-expo);
+        }
+
+        .nav-links a:hover {
+            color: var(--pearl);
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        .nav-cta {
+            padding: 0.55rem 1.5rem !important;
+            border: 1px solid rgba(45, 212, 191, 0.5) !important;
+            border-radius: 100px !important;
+            color: var(--teal) !important;
+            font-size: 0.75rem !important;
+            transition: all 0.3s ease !important;
+        }
+
+        .nav-cta:hover {
+            background: var(--teal) !important;
+            color: var(--deep) !important;
+        }
+
+        .nav-cta::after {
+            display: none !important;
+        }
+
+        /* Mobile menu */
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+        }
+
+        .menu-toggle span {
+            display: block;
+            width: 24px;
+            height: 2px;
+            background: var(--pearl);
+            margin: 5px 0;
+            transition: all 0.3s ease;
+        }
+
+        /* ═══════════════════════════════════════════
+           HERO SECTION
+           ═══════════════════════════════════════════ */
+        .hero {
+            position: relative;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .hero-bg {
+            position: absolute;
+            inset: 0;
+            z-index: -2;
+        }
+
+        .hero-bg img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: brightness(0.45) saturate(1.3);
+        }
+
+        .hero-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            background: 
+                linear-gradient(180deg, rgba(10, 22, 40, 0.3) 0%, rgba(10, 22, 40, 0.1) 40%, rgba(10, 22, 40, 0.7) 100%),
+                radial-gradient(ellipse at 20% 80%, rgba(45, 212, 191, 0.08) 0%, transparent 60%);
+        }
+
+        .hero-content {
+            text-align: center;
+            padding: 2rem;
+            max-width: 900px;
+            animation: heroReveal 1.2s var(--ease-out-expo) forwards;
+            opacity: 0;
+            transform: translateY(40px);
+        }
+
+        @keyframes heroReveal {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1.2rem;
+            border: 1px solid rgba(45, 212, 191, 0.3);
+            border-radius: 100px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--teal);
+            margin-bottom: 2rem;
+            animation: heroReveal 1.2s var(--ease-out-expo) 0.2s forwards;
+            opacity: 0;
+        }
+
+        .hero-badge .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--teal);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .hero h1 {
+            font-family: var(--heading);
+            font-size: clamp(2.8rem, 6vw, 5.5rem);
+            font-weight: 700;
+            color: var(--pearl);
+            line-height: 1.05;
+            margin-bottom: 1.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        .hero h1 em {
+            font-style: italic;
+            color: var(--teal);
+        }
+
+        .hero-sub {
+            font-size: 1.1rem;
+            font-weight: 300;
+            color: rgba(255, 255, 255, 0.65);
+            line-height: 1.7;
+            max-width: 600px;
+            margin: 0 auto 2.5rem;
+            animation: heroReveal 1.2s var(--ease-out-expo) 0.4s forwards;
+            opacity: 0;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: heroReveal 1.2s var(--ease-out-expo) 0.6s forwards;
+            opacity: 0;
+        }
+
+        .btn-primary {
+            padding: 0.9rem 2.2rem;
+            background: var(--teal);
+            color: var(--deep);
+            border: none;
+            border-radius: 100px;
+            font-family: var(--body);
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+            transition: all 0.35s var(--ease-out-expo);
+            text-decoration: none;
+        }
+
+        .btn-primary:hover {
+            background: var(--seafoam);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(45, 212, 191, 0.25);
+        }
+
+        .btn-outline {
+            padding: 0.9rem 2.2rem;
+            background: transparent;
+            color: var(--pearl);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 100px;
+            font-family: var(--body);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.35s var(--ease-out-expo);
+            text-decoration: none;
+        }
+
+        .btn-outline:hover {
+            border-color: var(--pearl);
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateY(-2px);
+        }
+
+        .hero-scroll {
+            position: absolute;
+            bottom: 2.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            color: rgba(255, 255, 255, 0.35);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .hero-scroll .line {
+            width: 1px;
+            height: 40px;
+            background: linear-gradient(to bottom, rgba(45, 212, 191, 0.5), transparent);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(8px); }
+        }
+
+        /* ═══════════════════════════════════════════
+           SECTION UTILITY
+           ═══════════════════════════════════════════ */
+        section {
+            padding: 7rem 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--teal-muted);
+            margin-bottom: 1rem;
+        }
+
+        .section-title {
+            font-family: var(--heading);
+            font-size: clamp(2rem, 4vw, 3.2rem);
+            font-weight: 700;
+            line-height: 1.15;
+            margin-bottom: 1.2rem;
+            letter-spacing: -0.01em;
+        }
+
+        .section-desc {
+            font-size: 1.05rem;
+            font-weight: 300;
+            color: var(--slate);
+            line-height: 1.7;
+            max-width: 620px;
+        }
+
+        .fade-in {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s var(--ease-out-expo), transform 0.8s var(--ease-out-expo);
+        }
+
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ═══════════════════════════════════════════
+           STATS BAR
+           ═══════════════════════════════════════════ */
+        .stats-bar {
+            background: var(--deep);
+            padding: 0;
+            position: relative;
+        }
+
+        .stats-bar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--teal), transparent);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .stat-item {
+            padding: 3rem 2rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .stat-item:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 25%;
+            height: 50%;
+            width: 1px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .stat-number {
+            font-family: var(--heading);
+            font-size: 2.8rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--slate-light);
+        }
+
+        /* ═══════════════════════════════════════════
+           ABOUT / MISSION
+           ═══════════════════════════════════════════ */
+        .about {
+            background: var(--sand-light);
+        }
+
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5rem;
+            align-items: center;
+            margin-top: 3rem;
+        }
+
+        .about-visual {
+            position: relative;
+            aspect-ratio: 4/3;
+            border-radius: 16px;
+            overflow: hidden;
+            background: linear-gradient(135deg, var(--ocean-dark), var(--ocean-light));
+        }
+
+        .about-visual img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.8;
+        }
+
+        .about-visual .overlay-tag {
+            position: absolute;
+            bottom: 1.5rem;
+            left: 1.5rem;
+            padding: 0.6rem 1.2rem;
+            background: rgba(10, 22, 40, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--teal);
+            letter-spacing: 0.05em;
+        }
+
+        .about-text h3 {
+            font-family: var(--heading);
+            font-size: 1.6rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--deep);
+        }
+
+        .about-text p {
+            font-size: 0.95rem;
+            color: var(--slate);
+            line-height: 1.8;
+            margin-bottom: 1.5rem;
+        }
+
+        .features-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .features-list li {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.9rem;
+            color: var(--deep);
+            font-weight: 400;
+        }
+
+        .features-list li .check {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(45, 212, 191, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: var(--teal-muted);
+            font-size: 0.7rem;
+        }
+
+        /* ═══════════════════════════════════════════
+           LIVE DATA MAP
+           ═══════════════════════════════════════════ */
+        .map-section {
+            background: var(--deep);
+            color: var(--pearl);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .map-section::before {
+            content: '';
+            position: absolute;
+            top: -200px;
+            right: -200px;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(45, 212, 191, 0.06), transparent 70%);
+        }
+
+        .map-section .section-desc {
+            color: var(--slate-light);
+        }
+
+        .map-wrapper {
+            margin-top: 3rem;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            position: relative;
+        }
+
+        #data-map {
+            width: 100%;
+            height: 480px;
+            background: var(--ocean-dark);
+        }
+
+        .leaflet-tile-pane {
+            filter: saturate(0.6) brightness(0.8);
+        }
+
+        .map-legend {
+            display: flex;
+            gap: 2rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--slate-light);
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        /* ═══════════════════════════════════════════
+           DATA SUBMISSION FORM
+           ═══════════════════════════════════════════ */
+        .submit-section {
+            background: var(--sand-light);
+            position: relative;
+        }
+
+        .form-container {
+            margin-top: 3rem;
+            max-width: 720px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-row.full {
+            grid-template-columns: 1fr;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-group label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--ocean-mid);
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 0.85rem 1.1rem;
+            border: 1px solid rgba(13, 33, 55, 0.12);
+            border-radius: 10px;
+            font-family: var(--body);
+            font-size: 0.9rem;
+            color: var(--deep);
+            background: var(--pearl);
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: var(--teal);
+            box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .gps-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 1.5rem;
+            align-items: end;
+            margin-bottom: 1.5rem;
+        }
+
+        .btn-gps {
+            padding: 0.85rem 1.3rem;
+            background: var(--ocean-mid);
+            color: var(--pearl);
+            border: none;
+            border-radius: 10px;
+            font-family: var(--body);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.3s ease;
+        }
+
+        .btn-gps:hover {
+            background: var(--ocean-light);
+        }
+
+        .btn-submit {
+            padding: 1rem 2.5rem;
+            background: var(--teal);
+            color: var(--deep);
+            border: none;
+            border-radius: 100px;
+            font-family: var(--body);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.35s var(--ease-out-expo);
+            margin-top: 1rem;
+            width: 100%;
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            background: var(--seafoam);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(45, 212, 191, 0.25);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .form-message {
+            margin-top: 1rem;
+            padding: 1rem 1.2rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: none;
+        }
+
+        .form-message.success {
+            display: block;
+            background: rgba(45, 212, 191, 0.1);
+            border: 1px solid rgba(45, 212, 191, 0.3);
+            color: var(--teal-muted);
+        }
+
+        .form-message.error {
+            display: block;
+            background: rgba(249, 112, 102, 0.1);
+            border: 1px solid rgba(249, 112, 102, 0.3);
+            color: var(--coral);
+        }
+
+        /* ═══════════════════════════════════════════
+           IMPACT SECTION
+           ═══════════════════════════════════════════ */
+        .impact {
+            background: linear-gradient(135deg, var(--ocean-dark) 0%, var(--ocean-mid) 100%);
+            color: var(--pearl);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .impact::after {
+            content: '';
+            position: absolute;
+            bottom: -100px;
+            left: -100px;
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(45, 212, 191, 0.08), transparent 70%);
+        }
+
+        .impact .section-desc {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .impact-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .impact-card {
+            padding: 2.5rem 2rem;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            transition: all 0.4s var(--ease-out-expo);
+        }
+
+        .impact-card:hover {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(45, 212, 191, 0.2);
+            transform: translateY(-4px);
+        }
+
+        .impact-card .icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(45, 212, 191, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .impact-card h3 {
+            font-family: var(--heading);
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+
+        .impact-card p {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.55);
+            line-height: 1.7;
+        }
+
+        /* ═══════════════════════════════════════════
+           RESOURCES
+           ═══════════════════════════════════════════ */
+        .resources {
+            background: var(--sand);
+        }
+
+        .resources-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+
+        .resource-card {
+            padding: 2rem;
+            background: var(--pearl);
+            border-radius: 14px;
+            border: 1px solid rgba(13, 33, 55, 0.06);
+            transition: all 0.35s var(--ease-out-expo);
+        }
+
+        .resource-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 50px rgba(10, 22, 40, 0.08);
+        }
+
+        .resource-card .tag {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 100px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+        }
+
+        .resource-card .tag.protocol { background: rgba(45, 212, 191, 0.12); color: var(--teal-muted); }
+        .resource-card .tag.guide { background: rgba(19, 69, 104, 0.1); color: var(--ocean-mid); }
+        .resource-card .tag.faq { background: rgba(212, 168, 83, 0.15); color: var(--gold); }
+
+        .resource-card h3 {
+            font-family: var(--heading);
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 0.6rem;
+        }
+
+        .resource-card p {
+            font-size: 0.85rem;
+            color: var(--slate);
+            line-height: 1.7;
+        }
+
+        /* ═══════════════════════════════════════════
+           CONTACT / FOOTER
+           ═══════════════════════════════════════════ */
+        .contact {
+            background: var(--deep);
+            color: var(--pearl);
+            padding: 5rem 2rem;
+        }
+
+        .contact-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5rem;
+            align-items: center;
+        }
+
+        .contact-text .section-title {
+            color: var(--pearl);
+        }
+
+        .contact-text p {
+            font-size: 0.95rem;
+            color: var(--slate-light);
+            line-height: 1.8;
+            margin-bottom: 1.5rem;
+        }
+
+        .contact-text a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .contact-links {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .contact-link {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.2rem 1.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            font-size: 0.9rem;
+            color: var(--pearl);
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .contact-link:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(45, 212, 191, 0.2);
+        }
+
+        .contact-link .icon-sm {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: rgba(45, 212, 191, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+
+        footer {
+            background: var(--deep);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 2rem;
+            text-align: center;
+        }
+
+        footer p {
+            font-size: 0.75rem;
+            color: var(--slate);
+        }
+
+        footer a {
+            color: var(--teal-muted);
+            text-decoration: none;
+        }
+
+        /* ═══════════════════════════════════════════
+           RESPONSIVE
+           ═══════════════════════════════════════════ */
+        @media (max-width: 900px) {
+            nav { padding: 0 1.5rem; }
+
+            .nav-links { display: none; }
+            .nav-links.open {
+                display: flex;
+                flex-direction: column;
+                position: fixed;
+                top: 72px;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(10, 22, 40, 0.97);
+                backdrop-filter: blur(20px);
+                padding: 2rem;
+                gap: 1.5rem;
+                align-items: center;
+                justify-content: center;
+            }
+            .nav-links.open a { font-size: 1rem; color: var(--pearl); }
+            .menu-toggle { display: block; }
+
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .stat-item:nth-child(2)::after { display: none; }
+
+            .about-grid { grid-template-columns: 1fr; gap: 2rem; }
+            .impact-cards { grid-template-columns: 1fr; }
+            .resources-grid { grid-template-columns: 1fr; }
+            .form-row, .gps-row { grid-template-columns: 1fr; }
+            .contact-inner { grid-template-columns: 1fr; gap: 3rem; }
+        }
+
+        @media (max-width: 600px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .stat-item::after { display: none !important; }
+            .stat-item { padding: 1.5rem 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ═══════════════ NAVIGATION ═══════════════ -->
+    <nav id="navbar">
+        <a href="#hero" class="nav-logo">National Environmental Data Network</a>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="#about">About</a></li>
+            <li><a href="#map-section">Live Map</a></li>
+            <li><a href="#submit">Submit Data</a></li>
+            <li><a href="#impact">Impact</a></li>
+            <li><a href="#resources">Resources</a></li>
+            <li><a href="#contact">Contact</a></li>
+            <li><a href="#submit" class="nav-cta">Contribute</a></li>
+        </ul>
+        <button class="menu-toggle" id="menuToggle" aria-label="Menu">
+            <span></span><span></span><span></span>
+        </button>
+    </nav>
+
+    <!-- ═══════════════ HERO ═══════════════ -->
+    <section class="hero" id="hero">
+        <div class="hero-bg">
+            <img src="https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=1920&q=80" alt="Ocean coastline">
+        </div>
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="dot"></span>
+                Citizen Science Network
+            </div>
+            <h1>Tracking Microplastics<br>Across America's <em>Coastlines</em></h1>
+            <p class="hero-sub">A student-led research initiative building the nation's largest crowdsourced database of coastal microplastic pollution — one sample at a time.</p>
+            <div class="hero-actions">
+                <a href="#submit" class="btn-primary">Submit Data</a>
+                <a href="#about" class="btn-outline">Learn More</a>
+            </div>
+        </div>
+        <div class="hero-scroll">
+            Scroll
+            <div class="line"></div>
+        </div>
+    </section>
+
+    <!-- ═══════════════ STATS BAR ═══════════════ -->
+    <section class="stats-bar">
+        <div class="stats-grid">
+            <div class="stat-item fade-in">
+                <div class="stat-number" id="statSamples">0</div>
+                <div class="stat-label">Samples Collected</div>
+            </div>
+            <div class="stat-item fade-in">
+                <div class="stat-number" id="statSchools">0</div>
+                <div class="stat-label">Partner Schools</div>
+            </div>
+            <div class="stat-item fade-in">
+                <div class="stat-number" id="statStates">0</div>
+                <div class="stat-label">States Covered</div>
+            </div>
+            <div class="stat-item fade-in">
+                <div class="stat-number" id="statAvg">0</div>
+                <div class="stat-label">Avg. Count / Sample</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════ ABOUT ═══════════════ -->
+    <section class="about" id="about">
+        <div class="container">
+            <div class="about-grid">
+                <div class="about-visual fade-in">
+                    <img src="https://images.unsplash.com/photo-1621451537084-482c73073a0f?w=800&q=80" alt="Microplastics research">
+                    <div class="overlay-tag">NOAA Protocol Certified</div>
+                </div>
+                <div class="about-text fade-in">
+                    <div class="section-label">Our Mission</div>
+                    <div class="section-title">Research-Grade Data,<br>Built by Students</div>
+                    <p>The National Environmental Data Network empowers high school and university students to collect scientifically rigorous microplastic data using NOAA Marine Debris monitoring protocols. Every sample follows a standardized methodology — ensuring our dataset is credible, comparable, and useful to real researchers.</p>
+                    <p>We believe citizen science should produce results that matter. Our data is reviewed, verified, and made openly accessible to professors, policymakers, and environmental organizations working to understand the scope of plastic pollution across American coastlines.</p>
+                    <ul class="features-list">
+                        <li><span class="check">✓</span> Standardized NOAA sampling protocol</li>
+                        <li><span class="check">✓</span> GPS-verified data with quality review</li>
+                        <li><span class="check">✓</span> Open dataset for researchers</li>
+                        <li><span class="check">✓</span> Growing partner school network</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════ LIVE DATA MAP ═══════════════ -->
+    <section class="map-section" id="map-section">
+        <div class="container">
+            <div class="section-label fade-in">Live Data</div>
+            <div class="section-title fade-in" style="color: var(--pearl);">Collection Sites Across the U.S.</div>
+            <p class="section-desc fade-in">Every approved data point appears on the map below. Zoom in to explore sample locations, microplastic counts, and contributing schools.</p>
+            <div class="map-wrapper fade-in">
+                <div id="data-map"></div>
+            </div>
+            <div class="map-legend fade-in">
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: var(--teal);"></div>
+                    Low count (0–20)
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: var(--gold);"></div>
+                    Medium count (21–50)
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: var(--coral);"></div>
+                    High count (50+)
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════ DATA SUBMISSION ═══════════════ -->
+    <section class="submit-section" id="submit">
+        <div class="container">
+            <div class="section-label fade-in">Contribute</div>
+            <div class="section-title fade-in">Submit Your Sample Data</div>
+            <p class="section-desc fade-in">Completed a microplastics collection? Log your findings below. All submissions go through a review process to ensure data quality.</p>
+            <div class="form-container fade-in">
+                <form id="dataForm" onsubmit="return false;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="date">Date of Collection</label>
+                            <input type="date" id="date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="location">Beach / Location Name</label>
+                            <input type="text" id="location" placeholder="e.g., Jones Beach, NY" required>
+                        </div>
+                    </div>
+                    <div class="gps-row">
+                        <div class="form-group">
+                            <label for="latitude">Latitude</label>
+                            <input type="text" id="latitude" placeholder="40.5931" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="longitude">Longitude</label>
+                            <input type="text" id="longitude" placeholder="-73.5004" required>
+                        </div>
+                        <button type="button" class="btn-gps" onclick="getGPS()">📍 Auto GPS</button>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="weather">Weather Conditions</label>
+                            <select id="weather" required>
+                                <option value="">Select...</option>
+                                <option value="Sunny">Sunny</option>
+                                <option value="Partly Cloudy">Partly Cloudy</option>
+                                <option value="Cloudy">Cloudy</option>
+                                <option value="Rainy">Rainy</option>
+                                <option value="Windy">Windy</option>
+                                <option value="Stormy">Stormy</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="count">Microplastic Count</label>
+                            <input type="number" id="count" min="0" placeholder="Number of pieces" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="school">School / Organization</label>
+                            <input type="text" id="school" placeholder="Your school name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="volunteer">Volunteer Name</label>
+                            <input type="text" id="volunteer" placeholder="Optional">
+                        </div>
+                    </div>
+                    <div class="form-row full">
+                        <div class="form-group">
+                            <label for="notes">Additional Notes</label>
+                            <textarea id="notes" placeholder="Observations, unusual findings, types of plastics found..."></textarea>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-submit" id="submitBtn" onclick="submitData()">Submit Sample Data</button>
+                </form>
+                <div class="form-message" id="formMessage"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════ IMPACT ═══════════════ -->
+    <section class="impact" id="impact">
+        <div class="container">
+            <div class="section-label fade-in" style="color: var(--teal);">Our Impact</div>
+            <div class="section-title fade-in">Building the Largest Student-Led<br>Environmental Dataset</div>
+            <p class="section-desc fade-in">Every sample matters. Here's how NEDN is contributing to real environmental science and policy.</p>
+            <div class="impact-cards">
+                <div class="impact-card fade-in">
+                    <div class="icon">🔬</div>
+                    <h3>Research-Grade Data</h3>
+                    <p>Following NOAA Marine Debris protocols ensures our microplastic counts meet the standards required for peer-reviewed research and government reporting.</p>
+                </div>
+                <div class="impact-card fade-in">
+                    <div class="icon">🌍</div>
+                    <h3>National Coverage</h3>
+                    <p>With partner schools across multiple states, we're building a dataset that captures regional variation in coastal pollution — something no single lab could achieve alone.</p>
+                </div>
+                <div class="impact-card fade-in">
+                    <div class="icon">📊</div>
+                    <h3>Open Access</h3>
+                    <p>All verified data is freely available to researchers, professors, and environmental organizations. We believe transparency accelerates scientific progress.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════ RESOURCES ═══════════════ -->
+    <section class="resources" id="resources">
+        <div class="container">
+            <div class="section-label fade-in">Resources</div>
+            <div class="section-title fade-in">Everything You Need to Get Started</div>
+            <p class="section-desc fade-in">Download our sampling guide, learn the protocol, or find answers to common questions.</p>
+            <div class="resources-grid">
+                <div class="resource-card fade-in">
+                    <div class="tag protocol">Protocol</div>
+                    <h3>NOAA Sampling Guide</h3>
+                    <p>Step-by-step instructions for collecting microplastic samples using the official NOAA Marine Debris monitoring methodology. Includes equipment list and field tips.</p>
+                </div>
+                <div class="resource-card fade-in">
+                    <div class="tag guide">Guide</div>
+                    <h3>How to Join the Network</h3>
+                    <p>Want your school involved? Our one-page guide covers everything from getting your club started to submitting your first dataset through the NEDN portal.</p>
+                </div>
+                <div class="resource-card fade-in">
+                    <div class="tag faq">FAQ</div>
+                    <h3>Frequently Asked Questions</h3>
+                    <p>What counts as a microplastic? How do I identify polymer types? What equipment do I need? Find answers to the most common questions from our volunteers.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════ CONTACT ═══════════════ -->
+    <section class="contact" id="contact">
+        <div class="contact-inner">
+            <div class="contact-text fade-in">
+                <div class="section-label" style="color: var(--teal);">Get in Touch</div>
+                <div class="section-title">Partner With Us</div>
+                <p>Whether you're a student looking to start sampling, a teacher who wants your school involved, or a researcher interested in our dataset — we'd love to hear from you.</p>
+            </div>
+            <div class="contact-links fade-in">
+                <a href="mailto:jossat@bmchsd.org" class="contact-link">
+                    <div class="icon-sm">✉</div>
+                    <div>
+                        <strong>Email Us</strong><br>
+                        <span style="color: var(--slate-light); font-size: 0.8rem;">jossat@bmchsd.org</span>
+                    </div>
+                </a>
+                <a href="admin.html" class="contact-link">
+                    <div class="icon-sm">⚙</div>
+                    <div>
+                        <strong>Admin Portal</strong><br>
+                        <span style="color: var(--slate-light); font-size: 0.8rem;">For network administrators</span>
+                    </div>
+                </a>
+                <a href="school-portal.html" class="contact-link">
+                    <div class="icon-sm">🏫</div>
+                    <div>
+                        <strong>School Portal</strong><br>
+                        <span style="color: var(--slate-light); font-size: 0.8rem;">Partner school dashboard</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════ FOOTER ═══════════════ -->
+    <footer>
+        <p>&copy; 2025 National Environmental Data Network. Built with purpose by students, for science. <a href="#hero">Back to top ↑</a></p>
+    </footer>
+
+    <!-- ═══════════════ JAVASCRIPT ═══════════════ -->
+    <script>
+        // ── CONFIG ──
+       const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxhHZImbmYiQ1bL-SDDS1gzccnH-FDnmoYk7rrTOrgWZzByf7fctmguXyWWvJMxljp1kA/exec';
+
+        // ── AUTO DATE ──
+        document.getElementById('date').valueAsDate = new Date();
+
+        // ── NAV SCROLL ──
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            navbar.classList.toggle('scrolled', window.scrollY > 50);
+        });
+
+        // ── MOBILE MENU ──
+        const menuToggle = document.getElementById('menuToggle');
+        const navLinks = document.getElementById('navLinks');
+        menuToggle.addEventListener('click', () => {
+            navLinks.classList.toggle('open');
+        });
+        navLinks.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => navLinks.classList.remove('open'));
+        });
+
+        // ── SCROLL ANIMATIONS ──
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry, i) => {
+                if (entry.isIntersecting) {
+                    setTimeout(() => entry.target.classList.add('visible'), i * 100);
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+        // ── GPS AUTO DETECT ──
+        function getGPS() {
+            const btn = document.querySelector('.btn-gps');
+            btn.textContent = '⏳ Locating...';
+            btn.disabled = true;
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        document.getElementById('latitude').value = pos.coords.latitude.toFixed(6);
+                        document.getElementById('longitude').value = pos.coords.longitude.toFixed(6);
+                        btn.textContent = '✓ Got it!';
+                        setTimeout(() => { btn.textContent = '📍 Auto GPS'; btn.disabled = false; }, 2000);
+                    },
+                    (err) => {
+                        btn.textContent = '✗ Failed';
+                        setTimeout(() => { btn.textContent = '📍 Auto GPS'; btn.disabled = false; }, 2000);
+                    }
+                );
+            } else {
+                btn.textContent = '✗ Not supported';
+                setTimeout(() => { btn.textContent = '📍 Auto GPS'; btn.disabled = false; }, 2000);
+            }
+        }
+
+        // ── SUBMIT DATA ──
+        let isSubmitting = false;
+
+        function submitData() {
+            if (isSubmitting) return;
+
+            const form = document.getElementById('dataForm');
+            const btn = document.getElementById('submitBtn');
+            const msg = document.getElementById('formMessage');
+
+            // Validate required fields
+            const required = ['date', 'location', 'latitude', 'longitude', 'weather', 'count', 'school'];
+            for (let id of required) {
+                if (!document.getElementById(id).value) {
+                    msg.className = 'form-message error';
+                    msg.textContent = 'Please fill in all required fields.';
+                    return;
+                }
+            }
+
+            isSubmitting = true;
+            btn.disabled = true;
+            btn.textContent = 'Submitting...';
+            msg.style.display = 'none';
+
+            const payload = {
+                action: 'submitData',
+                date: document.getElementById('date').value,
+                location: document.getElementById('location').value,
+                latitude: document.getElementById('latitude').value,
+                longitude: document.getElementById('longitude').value,
+                weather: document.getElementById('weather').value,
+                count: document.getElementById('count').value,
+                school: document.getElementById('school').value,
+                volunteer: document.getElementById('volunteer').value,
+                notes: document.getElementById('notes').value
+            };
+
+            fetch(GOOGLE_SHEETS_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(() => {
+                msg.className = 'form-message success';
+                msg.textContent = '✓ Sample data submitted successfully! It will appear on the map after review.';
+                form.reset();
+                document.getElementById('date').valueAsDate = new Date();
+                btn.textContent = 'Submitted ✓';
+                setTimeout(() => {
+                    btn.textContent = 'Submit Sample Data';
+                    btn.disabled = false;
+                    isSubmitting = false;
+                }, 3000);
+            })
+            .catch((err) => {
+                msg.className = 'form-message error';
+                msg.textContent = '✗ Something went wrong. Please try again.';
+                btn.textContent = 'Submit Sample Data';
+                btn.disabled = false;
+                isSubmitting = false;
+            });
+        }
+
+        // ── LEAFLET MAP (FREE!) ──
+        const map = L.map('data-map', {
+            center: [39.8283, -98.5795],
+            zoom: 4,
+            scrollWheelZoom: false,
+            zoomControl: true
+        });
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Fetch approved data and add markers
+        function loadMapData() {
+            fetch(GOOGLE_SHEETS_URL + '?action=getApprovedData')
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success' && Array.isArray(response.data)) {
+                        response.data.forEach(item => {
+                            const lat = parseFloat(item.Latitude || item.latitude);
+                            const lng = parseFloat(item.Longitude || item.longitude);
+                            const count = parseInt(item['Microplastic Count'] || item.count) || 0;
+
+                            if (!isNaN(lat) && !isNaN(lng)) {
+                                let color = '#2dd4bf'; // teal = low
+                                if (count > 50) color = '#f97066'; // coral = high
+                                else if (count > 20) color = '#d4a853'; // gold = medium
+
+                                const marker = L.circleMarker([lat, lng], {
+                                    radius: 15,
+                                    fillColor: color,
+                                    color: color,
+                                    weight: 1,
+                                    opacity: 0.8,
+                                    fillOpacity: 0.5
+                                }).addTo(map);
+
+                                marker.bindPopup(`
+                                    <strong>${item.Location || item.location || 'Unknown'}</strong><br>
+                                    Count: <strong>${count}</strong><br>
+                                    Date: ${item.Date || item.date || 'N/A'}<br>
+                                    School: ${item.School || item.school || 'N/A'}
+                                `);
+                            }
+                        });
+                    }
+                })
+                .catch(err => console.log('Map data fetch info:', err));
+        }
+
+        // ── LOAD STATS ──
+        function loadStats() {
+            fetch(GOOGLE_SHEETS_URL + '?action=getStats')
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status === 'success') {
+                        const d = response.data;
+                        animateCount('statSamples', d.approved || 0);
+                        animateCount('statSchools', d.totalSchools || 0);
+                        animateCount('statStates', d.totalStates || 0);
+                        animateCount('statAvg', parseFloat(d.avgMicroplastics) || 0);
+                    }
+                })
+                .catch(err => console.log('Stats fetch info:', err));
+        }
+
+        function animateCount(id, target) {
+            const el = document.getElementById(id);
+            const isDecimal = target % 1 !== 0;
+            let current = 0;
+            const step = target / 40;
+            const interval = setInterval(() => {
+                current += step;
+                if (current >= target) {
+                    current = target;
+                    clearInterval(interval);
+                }
+                el.textContent = isDecimal ? current.toFixed(1) : Math.round(current);
+            }, 30);
+        }
+
+        // ── INIT ──
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMapData();
+            loadStats();
+        });
+    </script>
+</body>
+</html>
